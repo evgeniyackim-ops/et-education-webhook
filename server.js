@@ -14,18 +14,70 @@ function loadPages() {
 }
 
 function findPage(query, pages) {
-  const lowerQuery = String(query || '').toLowerCase();
+  const lowerQuery = String(query || '').toLowerCase().trim();
 
   for (const page of pages) {
-    const title = String(page.title || '').toLowerCase();
-    if (title && lowerQuery.includes(title)) {
+    const title = String(page.title || '').toLowerCase().trim();
+
+    if (lowerQuery === title) {
       return page;
     }
   }
 
-  return null;
-}
+  for (const page of pages) {
+    const title = String(page.title || '').toLowerCase().trim();
 
+    if (lowerQuery.includes(title) || title.includes(lowerQuery)) {
+      return page;
+    }
+  }
+
+  const keywords = lowerQuery.split(' ').filter(word => word.length > 2);
+
+  let bestPage = null;
+  let bestScore = 0;
+
+  for (const page of pages) {
+    const title = String(page.title || '').toLowerCase();
+    let score = 0;
+
+    for (const word of keywords) {
+      if (title.includes(word)) {
+        score++;
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestPage = page;
+    }
+  }
+
+  return bestPage;
+}
+  const keywords = lowerQuery.split(' ').filter(word => word.length > 2);
+
+  let bestPage = null;
+  let bestScore = 0;
+
+  for (const page of pages) {
+    const title = String(page.title || '').toLowerCase();
+    let score = 0;
+
+    for (const word of keywords) {
+      if (title.includes(word)) {
+        score++;
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestPage = page;
+    }
+  }
+
+  return bestPage;
+}
 app.get('/', (req, res) => {
   res.send('ET Education webhook работает');
 });
