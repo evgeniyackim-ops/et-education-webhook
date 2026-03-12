@@ -7,14 +7,12 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// Загрузка страниц из JSON
 function loadPages() {
   const filePath = path.join(__dirname, 'pages.json');
   const data = fs.readFileSync(filePath, 'utf8');
   return JSON.parse(data);
 }
 
-// Нормализация текста
 function normalize(text) {
   return String(text || '')
     .toLowerCase()
@@ -23,7 +21,6 @@ function normalize(text) {
     .trim();
 }
 
-// Поиск лучшей страницы
 function findPage(query, pages) {
   const lowerQuery = normalize(query);
 
@@ -36,13 +33,12 @@ function findPage(query, pages) {
 
     let score = 0;
 
-    // Совпадение по title
     if (lowerQuery === title) score += 10;
     if (lowerQuery.includes(title)) score += 6;
     if (title.includes(lowerQuery) && lowerQuery.length > 3) score += 5;
 
-    // Совпадение по словам title
     const queryWords = lowerQuery.split(' ').filter(w => w.length > 2);
+
     for (const word of queryWords) {
       if (title.includes(word)) score += 2;
       if (keywords.some(k => k.includes(word))) score += 3;
@@ -57,17 +53,16 @@ function findPage(query, pages) {
   return bestScore > 0 ? bestPage : null;
 }
 
-// Формирование ответа
 function buildResponse(page) {
   if (!page) {
     return 'К сожалению, я не смог найти точную информацию на сайте. Попробуйте уточнить вопрос.';
   }
 
   if (page.shortText) {
-    return '${page.shortText} Подробнее: ${page.url}';
+    return `${page.shortText} Подробнее: ${page.url}`;
   }
 
-  return 'Я нашёл подходящий раздел: «${page.title}». Ссылка: ${page.url}';
+  return `Я нашёл подходящий раздел: «${page.title}». Ссылка: ${page.url}`;
 }
 
 app.get('/', (req, res) => {
@@ -76,6 +71,7 @@ app.get('/', (req, res) => {
 
 app.post('/webhook', (req, res) => {
   try {
+
     const queryResult = req.body?.queryResult || {};
     const userText = queryResult.queryText || '';
     const intentName = queryResult.intent?.displayName || '';
@@ -87,8 +83,12 @@ app.post('/webhook', (req, res) => {
 
     const pages = loadPages();
 
-    // Если это site-search или fallback — ищем по сайту
-    if (intentName === 'site-search' || action === 'search_site' || intentName === 'Default Fallback Intent') {
+    if (
+      intentName === 'site-search' ||
+      action === 'search_site' ||
+      intentName === 'Default Fallback Intent'
+    ) {
+
       const foundPage = findPage(userText, pages);
       const answer = buildResponse(foundPage);
 
@@ -97,12 +97,12 @@ app.post('/webhook', (req, res) => {
       });
     }
 
-    // Тестовый ответ для остальных интентов
     return res.json({
       fulfillmentText: `Webhook работает. Сработал интент: ${intentName || 'без названия'}.`
     });
 
   } catch (error) {
+
     console.error('Ошибка webhook:', error);
 
     return res.json({
@@ -112,5 +112,5 @@ app.post('/webhook', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log('Сервер запущен на порту ' + PORT);
+  console.log(`Сервер запущен на порту ${PORT}`);
 });
