@@ -18,7 +18,6 @@ function findPage(query, pages) {
 
   for (const page of pages) {
     const title = String(page.title || '').toLowerCase().trim();
-
     if (lowerQuery === title) {
       return page;
     }
@@ -26,14 +25,12 @@ function findPage(query, pages) {
 
   for (const page of pages) {
     const title = String(page.title || '').toLowerCase().trim();
-
     if (lowerQuery.includes(title) || title.includes(lowerQuery)) {
       return page;
     }
   }
 
   const keywords = lowerQuery.split(' ').filter(word => word.length > 2);
-
   let bestPage = null;
   let bestScore = 0;
 
@@ -55,29 +52,7 @@ function findPage(query, pages) {
 
   return bestPage;
 }
-  const keywords = lowerQuery.split(' ').filter(word => word.length > 2);
 
-  let bestPage = null;
-  let bestScore = 0;
-
-  for (const page of pages) {
-    const title = String(page.title || '').toLowerCase();
-    let score = 0;
-
-    for (const word of keywords) {
-      if (title.includes(word)) {
-        score++;
-      }
-    }
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestPage = page;
-    }
-  }
-
-  return bestPage;
-}
 app.get('/', (req, res) => {
   res.send('ET Education webhook работает');
 });
@@ -101,7 +76,7 @@ app.post('/webhook', (req, res) => {
     });
   } catch (error) {
     console.error('Ошибка webhook:', error);
-    return res.json({
+    return res.status(500).json({
       fulfillmentText: 'Произошла ошибка при обработке запроса.'
     });
   }
