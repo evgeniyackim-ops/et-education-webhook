@@ -7,41 +7,45 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
+// Загрузка страниц из JSON
 function loadPages() {
   const filePath = path.join(__dirname, 'pages.json');
   const data = fs.readFileSync(filePath, 'utf8');
   return JSON.parse(data);
 }
 
+// Нормализация текста
+function normalize(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Поиск лучшей страницы
 function findPage(query, pages) {
-  const lowerQuery = String(query || '').toLowerCase().trim();
+  const lowerQuery = normalize(query);
 
-  for (const page of pages) {
-    const title = String(page.title || '').toLowerCase().trim();
-    if (lowerQuery === title) {
-      return page;
-    }
-  }
-
-  for (const page of pages) {
-    const title = String(page.title || '').toLowerCase().trim();
-    if (lowerQuery.includes(title) || title.includes(lowerQuery)) {
-      return page;
-    }
-  }
-
-  const keywords = lowerQuery.split(' ').filter(word => word.length > 2);
   let bestPage = null;
   let bestScore = 0;
 
   for (const page of pages) {
-    const title = String(page.title || '').toLowerCase();
+    const title = normalize(page.title);
+    const keywords = (page.keywords || []).map(normalize);
+
     let score = 0;
 
-    for (const word of keywords) {
-      if (title.includes(word)) {
-        score++;
-      }
+    // Совпадение по title
+    if (lowerQuery === title) score += 10;
+    if (lowerQuery.includes(title)) score += 6;
+    if (title.includes(lowerQuery) && lowerQuery.length > 3) score += 5;
+
+    // Совпадение по словам title
+    const queryWords = lowerQuery.split(' ').filter(w => w.length > 2);
+    for (const word of queryWords) {
+      if (title.includes(word)) score += 2;
+      if (keywords.some(k => k.includes(word))) score += 3;
     }
 
     if (score > bestScore) {
@@ -50,7 +54,20 @@ function findPage(query, pages) {
     }
   }
 
-  return bestPage;
+  return bestScore > 0 ? bestPage : null;
+}
+
+// Формирование ответа
+function buildResponse(page) {
+  if (!page) {
+    return 'К сожалению, я не смог найти точную информацию на сайте. Попробуйте уточнить вопрос.';
+  }
+
+  if (page.shortText) {
+    return '${page.shortText} Подробнее: ${page.url}';
+  }
+
+  return 'Я нашёл подходящий раздел: «${page.title}». Ссылка: ${page.url}';
 }
 
 app.get('/', (req, res) => {
@@ -59,25 +76,37 @@ app.get('/', (req, res) => {
 
 app.post('/webhook', (req, res) => {
   try {
-    const queryResult = req.body && req.body.queryResult ? req.body.queryResult : {};
+    const queryResult = req.body?.queryResult || {};
     const userText = queryResult.queryText || '';
+    const intentName = queryResult.intent?.displayName || '';
+    const action = queryResult.action || '';
+
+    console.log('Intent:', intentName);
+    console.log('Action:', action);
+    console.log('Query:', userText);
 
     const pages = loadPages();
-    const foundPage = findPage(userText, pages);
 
-    if (foundPage) {
+    // Если это site-search или fallback — ищем по сайту
+    if (intentName === 'site-search' || action === 'search_site' || intentName === 'Default Fallback Intent') {
+      const foundPage = findPage(userText, pages);
+      const answer = buildResponse(foundPage);
+
       return res.json({
-        fulfillmentText: 'Я нашёл информацию на странице "' + foundPage.title + '". Перейдите по ссылке: ' + foundPage.url
+        fulfillmentText: answer
       });
     }
 
+    // Тестовый ответ для остальных интентов
     return res.json({
-      fulfillmentText: 'К сожалению, я не смог найти информацию на сайте. Попробуйте сформулировать вопрос иначе.'
+      fulfillmentText: `Webhook работает. Сработал интент: ${intentName || 'без названия'}.`
     });
+
   } catch (error) {
     console.error('Ошибка webhook:', error);
-    return res.status(500).json({
-      fulfillmentText: 'Произошла ошибка при обработке запроса.'
+
+    return res.json({
+      fulfillmentText: 'Произошла ошибка при обработке запроса на сервере.'
     });
   }
 });
