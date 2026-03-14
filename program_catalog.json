@@ -1,0 +1,369 @@
+[
+  {
+    "id": "lab_iso17025",
+    "title": "Реализация требований ГОСТ ISO/IEC 17025-2019 с учетом рекомендаций ГОСТ Р ИСО 19011 при проведении внутренних аудитов в испытательной лаборатории",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "очно"
+    ],
+    "duration": "20 академических часов",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Изучение требований стандарта ISO/IEC 17025 для лабораторий",
+    "price": "26 775 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/realizatsiya-trebovaniy-gost-iso-iec-17025-2019-s-uchetom-rekomendatsiy-gost-r-iso-19011-pri-provede/",
+    "short_description": "Изучение требований стандарта ISO/IEC 17025 для лабораторий. Срок освоения: 20 академических часов. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "lab_quality_manager",
+    "title": "Менеджер по качеству испытательной лаборатории - правильная организация работы по установлению, документированию, внедрению и поддержанию системы менеджмента",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "очно"
+    ],
+    "duration": "27 академических часов",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Подготовка специалистов по управлению системой качества лаборатории",
+    "price": "36 750 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/menedzher-po-kachestvu-ispytatelnoy-laboratorii-pravilnaya-organizatsiya-raboty-po-ustanovleniyu-dok/",
+    "short_description": "Подготовка специалистов по управлению системой качества лаборатории. Срок освоения: 27 академических часов. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "lab_measurement_uncertainty",
+    "title": "Основные принципы и подходы к оцениванию неопределенности измерений",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "очно"
+    ],
+    "duration": "18 академических часов",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Обучение расчету неопределенности измерений",
+    "price": "23 310 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/osnovnye-printsipy-i-podkhody-k-otsenivaniyu-neopredelennosti-izmereniy/",
+    "short_description": "Обучение расчету неопределенности измерений. Срок освоения: 18 академических часов. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "lab_metrology_support",
+    "title": "Метрологическое обеспечение производства",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "очно-заочно"
+    ],
+    "duration": "72 академических часа",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Обучение обеспечению единства измерений на предприятии",
+    "price": "31 185 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/metrologicheskoe-obespechenie-proizvodstva/",
+    "short_description": "Обучение обеспечению единства измерений на предприятии. Срок освоения: 72 академических часа. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "lab_document_expertise",
+    "title": "Метрологическая экспертиза и нормоконтроль документации с учетом изменений в законодательстве (особенности и принципы проведения)",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "очно-заочно"
+    ],
+    "duration": "72 академических часа",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Изучение методов экспертизы технической документации",
+    "price": "31 185 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/metrologicheskaya-ekspertiza-i-normokontrol-dokumentatsii-s-uchetom-izmeneniy-v-zakonodatelstve-osob/",
+    "short_description": "Изучение методов экспертизы технической документации. Срок освоения: 72 академических часа. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "lab_quality_control",
+    "title": "Внутрилабораторный контроль качества результатов анализа (с учетом положений ГОСТ Р ИСО 5725, РМГ 61, РМГ 76)",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "очно"
+    ],
+    "duration": "36 академических часов",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Обучение методам контроля качества аналитических результатов",
+    "price": "27 300 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/vnutrilaboratornyy-kontrol-kachestva-rezultatov-analiza-s-uchetom-polozheniy-gost-r-iso-5725-rmg-61-/",
+    "short_description": "Обучение методам контроля качества аналитических результатов. Срок освоения: 36 академических часов. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "lab_equipment_certification",
+    "title": "Аттестация испытательного оборудования",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "очно"
+    ],
+    "duration": "18 академических часов",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Освоение процедур аттестации оборудования лабораторий",
+    "price": "19 000 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/attestatsiya-ispytatelnogo-oborudovaniya/",
+    "short_description": "Освоение процедур аттестации оборудования лабораторий. Срок освоения: 18 академических часов. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "lab_accreditation",
+    "title": "Аккредитация в области обеспечения единства измерений (поверка, калибровка средств измерений) с учетом действующего законодательства. Подготовка к прохождению процедур аккредитации и подтверждения компетентности",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "очно"
+    ],
+    "duration": "36 академических часов",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Подготовка лабораторий к процедуре аккредитации",
+    "price": "29 400 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/akkreditatsiya-v-oblasti-obespecheniya-edinstva-izmereniy-poverka-kalibrovka-sredstv-izmereniy-s-uch/",
+    "short_description": "Подготовка лабораторий к процедуре аккредитации. Срок освоения: 36 академических часов. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "lab_sampling_air",
+    "title": "Отбор и анализ проб газовоздушной среды переносными газоанализаторами, газосигнализаторами (для нефтяной отрасли)",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "заочно",
+      "дистанционно"
+    ],
+    "duration": "72 академических часа",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Освоение методов анализа газовоздушной среды",
+    "price": "6 825 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/otbor-i-analiz-prob-gazovozdushnoy-sredy-perenosnymi-gazoanalizatorami-gazosignalizatorami-inzhenern/",
+    "short_description": "Освоение методов анализа газовоздушной среды. Срок освоения: 72 академических часа. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "lab_sampling_environment",
+    "title": "Правила и порядок отбора проб компонентов окружающей среды, отходов производства и потребления для испытаний в аккредитованных лабораториях",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "заочно",
+      "дистанционно"
+    ],
+    "duration": "72 академических часа",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Освоение методов отбора проб воды, почвы и воздуха",
+    "price": "6 825 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/pravila-i-poryadok-otbora-prob-komponentov-okruzhayushchey-sredy-otkhodov-proizvodstva-i-potrebleniya/",
+    "short_description": "Освоение методов отбора проб воды, почвы и воздуха. Срок освоения: 72 академических часа. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "lab_physicochemical_analysis",
+    "title": "Физико-химические методы и средства химического анализа в деятельности испытательных лабораторий",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "заочно",
+      "дистанционно"
+    ],
+    "duration": "260 академических часов",
+    "certificate": "Диплом о профессиональной переподготовке установленного образца",
+    "goal": "Освоение современных методов химического анализа",
+    "price": "23 100 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/fiziko-khimicheskie-metody-i-sredstva-khimicheskogo-analiza-v-deyatelnosti-ispytatelnykh-laboratoriy/",
+    "short_description": "Освоение современных методов химического анализа. Срок освоения: 260 академических часов. Документ: Диплом о профессиональной переподготовке установленного образца.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "lab_retraining",
+    "title": "Профессиональная переподготовка специалистов лабораторий (центров), выполняющих работы по исследованиям (испытаниям) и измерениям химических, биологических и физических факторов производственной среды и факторов трудового процесса",
+    "direction": "laboratories",
+    "direction_label": "Лаборатории и метрологические службы",
+    "formats": [
+      "дистанционно",
+      "заочно"
+    ],
+    "duration": "256 академических часов",
+    "certificate": "Диплом о профессиональной переподготовке",
+    "goal": "Подготовка специалистов лабораторий к профессиональной деятельности",
+    "price": "23 100 руб.",
+    "url": "https://et-education.ru/services/metrologiya-i-laboratorii/professionalnaya-perepodgotovka-spetsialistov-ispytatelnykh-laboratoriy-tsentrov-vypolnyayushchikh-r/",
+    "short_description": "Подготовка специалистов лабораторий к профессиональной деятельности. Срок освоения: 256 академических часов. Документ: Диплом о профессиональной переподготовке.",
+    "direction_icon": "🧪"
+  },
+  {
+    "id": "eco_environmental_safety_managers",
+    "title": "Обеспечение экологической безопасности руководителями и специалистами общехозяйственных систем управления",
+    "direction": "ecology",
+    "direction_label": "Экологическая безопасность",
+    "formats": [
+      "очно-заочно",
+      "заочно",
+      "дистанционно"
+    ],
+    "duration": "72 академических часа",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Подготовка руководителей в области экологической безопасности",
+    "price": "от 5 198 руб.",
+    "url": "https://et-education.ru/services/ekologicheskaya-bezopasnost/obespechenie-ekologicheskoy-bezopasnosti-rukovoditelyami-i-spetsialistami-obshchekhozyaystvennykh-si/",
+    "short_description": "Подготовка руководителей в области экологической безопасности. Срок освоения: 72 академических часа. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🌱"
+  },
+  {
+    "id": "eco_environmental_specialists",
+    "title": "Специалист по экологической безопасности",
+    "direction": "ecology",
+    "direction_label": "Экологическая безопасность",
+    "formats": [
+      "заочно",
+      "дистанционно"
+    ],
+    "duration": "256 академических часа",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Подготовка специалистов экологического контроля",
+    "price": "23 100 руб.",
+    "url": "https://et-education.ru/services/ekologicheskaya-bezopasnost/spetsialist-po-ekologicheskoy-bezopasnosti/",
+    "short_description": "Подготовка специалистов экологического контроля. Срок освоения: 256 академических часа. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🌱"
+  },
+  {
+    "id": "eco_waste_management",
+    "title": "Повышение квалификации в области сбора, транспортирования, обработки, утилизации, обезвреживания, размещения отходов I-IV классов опасности",
+    "direction": "ecology",
+    "direction_label": "Экологическая безопасность",
+    "formats": [
+      "очно-заочно",
+      "дистанционно"
+    ],
+    "duration": "38 академических часов",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Освоение правил обращения с опасными отходами",
+    "price": "от 5 618 руб.",
+    "url": "https://et-education.ru/services/ekologicheskaya-bezopasnost/povyshenie-kvalifikatsii-v-oblasti-sbora-transportirovaniya-obrabotki-utilizatsii-obezvrezhivaniya-r/",
+    "short_description": "Освоение правил обращения с опасными отходами. Срок освоения: 38 академических часов. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🌱"
+  },
+  {
+    "id": "eco_management_ISO14001",
+    "title": "Система экологического менеджмента по ISO 14001. Внутренний аудит",
+    "direction": "ecology",
+    "direction_label": "Экологическая безопасность",
+    "formats": [
+      "очно"
+    ],
+    "duration": "16 академических часов",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "актуализация знаний и формирование умений в проведении внутренних аудитов системы экологического менеджмента на предприятии, направленных на повышение профессионального уровня всех заинтересованных специалистов в рамках имеющейся квалификации",
+    "price": "17 325 руб.",
+    "url": "https://et-education.ru/services/ekologicheskaya-bezopasnost/sistema-ekologicheskogo-menedzhmenta-po-iso-14001-vnutrenniy-audit1234/",
+    "short_description": "Актуализация знаний и формирование умений в проведении внутренних аудитов системы экологического менеджмента на предприятии, направленных на повышение профессионального уровня всех заинтересованных специалистов в рамках имеющейся квалификации. Срок освоения: 16 академических часов. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🌱"
+  },
+  {
+    "id": "norm_instruction",
+    "title": "Нормоконтроль технической документации",
+    "direction": "normocontrol",
+    "direction_label": "Нормоконтроль",
+    "formats": [
+      "очно-заочно",
+      "семинар"
+    ],
+    "duration": "72 академических часа",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "приобретение слушателями необходимых знаний и умений для их применения в практической деятельности и повышения профессионального уровня в рамках имеющейся квалификации при решении профессиональных задач при проведении нормоконтроля технической документации",
+    "price": "Цена по запросу",
+    "url": "https://et-education.ru/services/normokontrol/normokontrol-tekhnicheskoy-dokumentatsii/",
+    "short_description": "Приобретение слушателями необходимых знаний и умений для их применения в практической деятельности и повышения профессионального уровня в рамках имеющейся квалификации при решении профессиональных задач при проведении нормоконтроля технической документации. Срок освоения: 72 академических часа. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "📑"
+  },
+  {
+    "id": "labor_risk_management",
+    "title": "Управление профессиональными рисками",
+    "direction": "labor_safety",
+    "direction_label": "Охрана труда",
+    "formats": [
+      "заочно",
+      "дистанционно"
+    ],
+    "duration": "72 академических часа",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Обучение оценке и управлению профессиональными рисками",
+    "price": "6 195 руб.",
+    "url": "https://et-education.ru/services/bezopasnost-i-okhrana-truda6140/upravlenie-professionalnymi-riskami/",
+    "short_description": "Обучение оценке и управлению профессиональными рисками. Срок освоения: 72 академических часа. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🦺"
+  },
+  {
+    "id": "tech_safety",
+    "title": "Техносферная безопасность",
+    "direction": "labor_safety",
+    "direction_label": "Охрана труда",
+    "formats": [
+      "заочно",
+      "дистанционно"
+    ],
+    "duration": "504 академических часа",
+    "certificate": "Диплом о профессиональной переподготовке установленного образца",
+    "goal": "Профессиональная переподготовка специалиста техносферной безопасности",
+    "price": "28 875 руб.",
+    "url": "https://et-education.ru/services/bezopasnost-i-okhrana-truda6140/tekhnosfernaya-bezopasnost/",
+    "short_description": "Профессиональная переподготовка специалиста техносферной безопасности. Срок освоения: 504 академических часа. Документ: Диплом о профессиональной переподготовке установленного образца.",
+    "direction_icon": "🦺"
+  },
+  {
+    "id": "radiation_safety",
+    "title": "Радиационная безопасность и радиационный контроль при эксплуатации радиационных источников, содержащих радиоактивные вещества и генерирующих ионизирующее излучение, их учет и контроль",
+    "direction": "radiation",
+    "direction_label": "Радиационная безопасность",
+    "formats": [
+      "очно-заочно",
+      "дистанционно"
+    ],
+    "duration": "72 академических часа",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Обучение работе с источниками ионизирующего излучения",
+    "price": "от 6 195 руб.",
+    "url": "https://et-education.ru/services/radiatsionnaya-bezopasnost/radiatsionnaya-bezopasnost-i-radiatsionnyy-kontrol-pri-ekspluatatsii-radiatsionnykh-istochnikov-sode/",
+    "short_description": "Обучение работе с источниками ионизирующего излучения. Срок освоения: 72 академических часа. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "☢️"
+  },
+  {
+    "id": "energy_efficiency",
+    "title": "Энергосбережение и энергоэффективность",
+    "direction": "energy",
+    "direction_label": "Электроэнергетика и электробезопасность",
+    "formats": [
+      "заочно",
+      "дистанционно"
+    ],
+    "duration": "24 академических часа",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Обучение вопросам энергосбережения",
+    "price": "4 620 руб.",
+    "url": "https://et-education.ru/services/elektroenergetika-i-elektrobezopasnost/energosberezhenie-i-energoeffektivnost/",
+    "short_description": "Обучение вопросам энергосбережения. Срок освоения: 24 академических часа. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "⚡"
+  },
+  {
+    "id": "food_haccp",
+    "title": "Система ХАССП. Практическое применение международных требований по безопасности пищевой продукции на предприятии",
+    "direction": "food",
+    "direction_label": "Пищевая промышленность",
+    "formats": [
+      "заочно",
+      "дистанционно",
+      "вебинар"
+    ],
+    "duration": "16 академических часов",
+    "certificate": "Удостоверение о повышении квалификации",
+    "goal": "Обучение внедрению системы безопасности пищевой продукции",
+    "price": "4 620 руб.",
+    "url": "https://et-education.ru/services/pishchevaya-promyshlennost/sistema-khassp-prakticheskoe-primenenie-mezhdunarodnykh-trebovaniy-po-bezopasnosti-pishchevoy-produk/",
+    "short_description": "Обучение внедрению системы безопасности пищевой продукции. Срок освоения: 16 академических часов. Документ: Удостоверение о повышении квалификации.",
+    "direction_icon": "🍽️"
+  }
+]
