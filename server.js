@@ -12,7 +12,26 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || '';
 const DIALOGFLOW_PROJECT_ID = process.env.DIALOGFLOW_PROJECT_ID || '';
 const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
-const GOOGLE_PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+function normalizeGooglePrivateKey(rawValue) {
+  let key = String(rawValue || '').trim();
+  if (!key) return '';
+
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1);
+  }
+
+  key = key
+    .replace(/\r\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\r/g, '\n');
+
+  if (!key.endsWith('\n')) {
+    key += '\n';
+  }
+
+  return key;
+}
+const GOOGLE_PRIVATE_KEY = normalizeGooglePrivateKey(process.env.GOOGLE_PRIVATE_KEY || '');
 const DEMO_REMINDER_DELAY_SECONDS = Number(process.env.DEMO_REMINDER_DELAY_SECONDS || 30);
 
 const KB_FILE = path.join(__dirname, 'knowledge_base.json');
@@ -357,6 +376,10 @@ async function buildDialogflowDiagnostics(testText) {
   diagnostics.push(`DIALOGFLOW_PROJECT_ID: ${DIALOGFLOW_PROJECT_ID ? 'есть' : 'нет'}`);
   diagnostics.push(`GOOGLE_CLIENT_EMAIL: ${GOOGLE_CLIENT_EMAIL ? 'есть' : 'нет'}`);
   diagnostics.push(`GOOGLE_PRIVATE_KEY: ${GOOGLE_PRIVATE_KEY ? 'есть' : 'нет'}`);
+  if (GOOGLE_PRIVATE_KEY) {
+    diagnostics.push(`PRIVATE_KEY_BEGIN: ${GOOGLE_PRIVATE_KEY.startsWith('-----BEGIN PRIVATE KEY-----') ? 'ok' : 'нет'}`);
+    diagnostics.push(`PRIVATE_KEY_END: ${GOOGLE_PRIVATE_KEY.includes('-----END PRIVATE KEY-----') ? 'ok' : 'нет'}`);
+  }
   diagnostics.push(`Тестовая фраза: ${testText}`);
 
   const result = await detectDialogflowIntent(`diag-${Date.now()}`, testText);
