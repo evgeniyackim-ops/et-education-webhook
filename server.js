@@ -13,23 +13,40 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERN
 const DIALOGFLOW_PROJECT_ID = process.env.DIALOGFLOW_PROJECT_ID || '';
 const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
 function normalizeGooglePrivateKey(rawValue) {
-  let key = String(rawValue || '').trim();
+  if (!rawValue) return '';
+
+  let key = String(rawValue).trim();
   if (!key) return '';
 
-  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+  if (
+    (key.startsWith('"') && key.endsWith('"')) ||
+    (key.startsWith("'") && key.endsWith("'"))
+  ) {
     key = key.slice(1, -1);
   }
 
   key = key
     .replace(/\r\n/g, '\n')
     .replace(/\\n/g, '\n')
-    .replace(/\r/g, '\n');
+    .replace(/\r/g, '\n')
+    .trim();
 
-  if (!key.endsWith('\n')) {
-    key += '\n';
+  const beginMarker = '-----BEGIN PRIVATE KEY-----';
+  const endMarker = '-----END PRIVATE KEY-----';
+
+  if (key.includes(beginMarker) && key.includes(endMarker)) {
+    const body = key
+      .replace(beginMarker, '')
+      .replace(endMarker, '')
+      .replace(/\s+/g, '');
+
+    const wrapped = body.match(/.{1,64}/g)?.join('\n') || body;
+    return `${beginMarker}\n${wrapped}\n${endMarker}\n`;
   }
 
-  return key;
+  key = key.replace(/\s+/g, '');
+  const wrapped = key.match(/.{1,64}/g)?.join('\n') || key;
+  return `${beginMarker}\n${wrapped}\n${endMarker}\n`;
 }
 const GOOGLE_PRIVATE_KEY = normalizeGooglePrivateKey(process.env.GOOGLE_PRIVATE_KEY || '');
 const DEMO_REMINDER_DELAY_SECONDS = Number(process.env.DEMO_REMINDER_DELAY_SECONDS || 30);
