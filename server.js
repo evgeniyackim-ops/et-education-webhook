@@ -9,18 +9,10 @@ app.use(express.json({ limit: '1mb' }));
 
 const PORT = process.env.PORT || 3000;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || '';
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || '';
 const DIALOGFLOW_PROJECT_ID = process.env.DIALOGFLOW_PROJECT_ID || '';
 const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
-const GOOGLE_PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-const DIALOGFLOW_LANGUAGE_CODE = process.env.DIALOGFLOW_LANGUAGE_CODE || 'ru';
-const DEMO_REMINDER_DELAY_SECONDS = Number(process.env.DEMO_REMINDER_DELAY_SECONDS || 15);
-
-const demoDeadlines = [
-  { type: 'deadline', title: 'Сдача итоговой работы', date: '25.03.2026' },
-  { type: 'attestation', title: 'Промежуточная аттестация', date: '28.03.2026' },
-  { type: 'deadline', title: 'Завершение тестирования', date: '30.03.2026' }
-];
+const GOOGLE_PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\n/g, '\n');
 
 const KB_FILE = path.join(__dirname, 'knowledge_base.json');
 const PROGRAM_CATALOG_FILE = path.join(__dirname, 'program_catalog.json');
@@ -210,10 +202,9 @@ function resolveFollowUpByUserText(userText, suggestionCards, kb) {
 
 function getBaseUrl(req) {
   if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL.replace(/\/$/, '');
-  const host = req.get('host') || '';
-  if (host.includes('onrender.com')) return `https://${host}`;
+  const host = req.get('host');
   const forwardedProto = req.get('x-forwarded-proto');
-  const protocol = forwardedProto ? forwardedProto.split(',')[0].trim() : req.protocol;
+  const protocol = forwardedProto || (host && host.includes('onrender.com') ? 'https' : req.protocol);
   return `${protocol}://${host}`;
 }
 
@@ -252,7 +243,8 @@ function getProgramReplyMarkup(baseUrl) {
   };
 }
 
-function base64Url(input) {
+
+function base64UrlEncode(input) {
   return Buffer.from(input)
     .toString('base64')
     .replace(/=/g, '')
@@ -260,77 +252,83 @@ function base64Url(input) {
     .replace(/\//g, '_');
 }
 
-function createServiceAccountJwt() {
-  if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) return null;
-  const now = Math.floor(Date.now() / 1000);
+function signJwtRS256(payload, privateKey) {
   const header = { alg: 'RS256', typ: 'JWT' };
-  const payload = {
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const data = `${encodedHeader}.${encodedPayload}`;
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(data);
+  signer.end();
+  const signature = signer
+    .sign(privateKey, 'base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+  return `${data}.${signature}`;
+}
+
+let googleAccessTokenCache = {
+  accessToken: '',
+  expiresAt: 0
+};
+
+async function getGoogleAccessToken() {
+  if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) return '';
+  const now = Math.floor(Date.now() / 1000);
+  if (googleAccessTokenCache.accessToken && googleAccessTokenCache.expiresAt - 60 > now) {
+    return googleAccessTokenCache.accessToken;
+  }
+
+  const jwt = signJwtRS256({
     iss: GOOGLE_CLIENT_EMAIL,
     scope: 'https://www.googleapis.com/auth/cloud-platform',
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
     iat: now
-  };
-  const encodedHeader = base64Url(JSON.stringify(header));
-  const encodedPayload = base64Url(JSON.stringify(payload));
-  const toSign = `${encodedHeader}.${encodedPayload}`;
-  const signature = crypto.sign('RSA-SHA256', Buffer.from(toSign), GOOGLE_PRIVATE_KEY)
-    .toString('base64')
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-  return `${toSign}.${signature}`;
-}
-
-let googleAccessTokenCache = { token: null, expiresAt: 0 };
-
-async function getGoogleAccessToken() {
-  if (googleAccessTokenCache.token && Date.now() < googleAccessTokenCache.expiresAt - 60_000) {
-    return googleAccessTokenCache.token;
-  }
-  const assertion = createServiceAccountJwt();
-  if (!assertion) return null;
+  }, GOOGLE_PRIVATE_KEY);
 
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion
-    }).toString()
+      assertion: jwt
+    })
   });
 
   const data = await response.json();
-  if (!response.ok) {
-    throw new Error(`Google OAuth token error: ${JSON.stringify(data)}`);
+  if (!response.ok || !data.access_token) {
+    throw new Error(`Google OAuth error: ${JSON.stringify(data)}`);
   }
 
   googleAccessTokenCache = {
-    token: data.access_token,
-    expiresAt: Date.now() + Number(data.expires_in || 3600) * 1000
+    accessToken: data.access_token,
+    expiresAt: now + Number(data.expires_in || 3600)
   };
-  return googleAccessTokenCache.token;
+  return googleAccessTokenCache.accessToken;
 }
 
-async function detectDialogflowIntent(text, sessionId) {
-  if (!DIALOGFLOW_PROJECT_ID || !GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) return null;
-  const accessToken = await getGoogleAccessToken();
-  if (!accessToken) return null;
+async function detectIntentWithDialogflow(sessionId, text) {
+  if (!DIALOGFLOW_PROJECT_ID || !GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
+    return null;
+  }
 
-  const safeSessionId = encodeURIComponent(`telegram-${sessionId}`);
+  const accessToken = await getGoogleAccessToken();
+  const safeSessionId = encodeURIComponent(String(sessionId));
   const url = `https://dialogflow.googleapis.com/v2/projects/${encodeURIComponent(DIALOGFLOW_PROJECT_ID)}/agent/sessions/${safeSessionId}:detectIntent`;
 
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json; charset=utf-8'
     },
     body: JSON.stringify({
       queryInput: {
         text: {
           text,
-          languageCode: DIALOGFLOW_LANGUAGE_CODE
+          languageCode: 'ru'
         }
       }
     })
@@ -340,52 +338,13 @@ async function detectDialogflowIntent(text, sessionId) {
   if (!response.ok) {
     throw new Error(`Dialogflow detectIntent error: ${JSON.stringify(data)}`);
   }
-  return data.queryResult || null;
-}
 
-function shouldUseDialogflowResult(queryResult) {
-  if (!queryResult) return false;
-  const intentName = queryResult.intent?.displayName || '';
-  const fulfillmentText = String(queryResult.fulfillmentText || '').trim();
-  if (!intentName) return false;
-  if (intentName === 'Default Fallback Intent') return false;
-  if (!fulfillmentText) return false;
-  return true;
-}
-
-
-function buildDeadlinesListText() {
-  const lines = demoDeadlines.map(item => `• ${item.date} — ${item.title}`);
-  return ['Ближайшие учебные события:', ...lines].join('\n');
-}
-
-function getNearestDeadline() {
-  return demoDeadlines[0] || null;
-}
-
-function extractReminderType(queryResult) {
-  const fields = queryResult?.parameters?.fields || {};
-  const candidate = fields.reminder_type?.stringValue || fields.reminderType?.stringValue || '';
-  const normalizedValue = normalize(candidate);
-  if (normalizedValue.includes('аттест')) return 'attestations';
-  if (normalizedValue.includes('все')) return 'all';
-  return 'deadlines';
-}
-
-function scheduleReminderMessage(chatId, replyMarkup) {
-  const nearest = getNearestDeadline();
-  if (!nearest) return;
-  setTimeout(async () => {
-    try {
-      await sendTelegramMessage(
-        chatId,
-        `Напоминание: ближайший дедлайн — ${nearest.title} (${nearest.date}).`,
-        replyMarkup
-      );
-    } catch (e) {
-      console.error('Ошибка отправки напоминания:', e);
-    }
-  }, DEMO_REMINDER_DELAY_SECONDS * 1000);
+  const result = data.queryResult || {};
+  return {
+    intentName: result.intent?.displayName || '',
+    fulfillmentText: result.fulfillmentText || '',
+    isFallback: Boolean(result.intent?.isFallback) || result.intent?.displayName === 'Default Fallback Intent'
+  };
 }
 
 async function sendTelegramMessage(chatId, text, replyMarkup = undefined) {
@@ -480,43 +439,19 @@ async function handleTelegramTextMessage(req, message) {
     return;
   }
 
-  const previousState = sessionState.get(String(chatId)) || null;
-
-  try {
-    const dialogflowResult = await detectDialogflowIntent(text, String(chatId));
-    if (shouldUseDialogflowResult(dialogflowResult)) {
-      const intentName = dialogflowResult.intent?.displayName || '';
-      const replyMarkup = getMainMenuReplyMarkup(baseUrl);
-
-      if (intentName === 'deadlines_info') {
-        await sendTelegramMessage(chatId, buildDeadlinesListText(), replyMarkup);
+  if (text && !normalized.startsWith('/start') && !normalized.startsWith('/menu')) {
+    try {
+      const dfResult = await detectIntentWithDialogflow(`telegram-${chatId}`, text);
+      if (dfResult && !dfResult.isFallback && dfResult.fulfillmentText) {
+        await sendTelegramMessage(chatId, dfResult.fulfillmentText, getMainMenuReplyMarkup(baseUrl));
         return;
       }
-
-      if (intentName === 'reminders_subscribe') {
-        const reminderType = extractReminderType(dialogflowResult);
-        let confirmationText = 'Напоминания о дедлайнах включены.';
-        if (reminderType === 'attestations') {
-          confirmationText = 'Напоминания об аттестациях включены.';
-        } else if (reminderType === 'all') {
-          confirmationText = 'Все учебные напоминания включены.';
-        }
-
-        await sendTelegramMessage(chatId, confirmationText, replyMarkup);
-        scheduleReminderMessage(chatId, replyMarkup);
-        return;
-      }
-
-      const directCard = getCardByIntent(kb, intentName);
-      if (directCard) {
-        sessionState.set(String(chatId), { lastCardId: directCard.id, suggestionIds: directCard.follow_up_ids || [] });
-      }
-      await sendTelegramMessage(chatId, String(dialogflowResult.fulfillmentText).trim(), replyMarkup);
-      return;
+    } catch (error) {
+      console.error('Ошибка Dialogflow detectIntent:', error);
     }
-  } catch (e) {
-    console.error('Ошибка обращения к Dialogflow, выполняется fallback в базу знаний:', e);
   }
+
+  const previousState = sessionState.get(String(chatId)) || null;
 
   if (previousState?.suggestionIds?.length) {
     const suggestionCards = previousState.suggestionIds.map(id => cardMap.get(id)).filter(Boolean);
