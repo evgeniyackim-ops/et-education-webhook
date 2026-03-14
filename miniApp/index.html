@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Каталог программ</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/miniapp/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="page-header">
+      <h1>Каталог программ обучения</h1>
+      <p class="subtitle">Выберите направление и формат обучения</p>
+    </header>
+
+    <section class="filters">
+      <select id="directionFilter">
+        <option value="">Все направления</option>
+        <option value="laboratories">Лаборатории и метрологические службы</option>
+        <option value="ecology">Экологическая безопасность</option>
+        <option value="normocontrol">Нормоконтроль</option>
+        <option value="labor_safety">Охрана труда</option>
+        <option value="radiation">Радиационная безопасность</option>
+        <option value="energy">Электроэнергетика и электробезопасность</option>
+        <option value="food">Пищевая промышленность</option>
+      </select>
+
+      <select id="formatFilter">
+        <option value="">Все форматы</option>
+        <option value="очно">Очно</option>
+        <option value="очно-заочно">Очно-заочно</option>
+        <option value="заочно">Заочно</option>
+        <option value="дистанционно">Дистанционно</option>
+        <option value="вебинар">Вебинар</option>
+        <option value="семинар">Семинар</option>
+      </select>
+    </section>
+
+    <section id="cards" class="cards"></section>
+  </div>
+
+  <script src="/miniapp/app.js"></script>
+</body>
+</html>
