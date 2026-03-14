@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const dialogflow = require('@google-cloud/dialogflow');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -9,6 +10,8 @@ app.use(express.json({ limit: '1mb' }));
 
 const PORT = process.env.PORT || 3000;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+const DIALOGFLOW_PROJECT_ID = process.env.DIALOGFLOW_PROJECT_ID || '';
+const GOOGLE_APPLICATION_CREDENTIALS_JSON = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || '';
 
 const KB_FILE = path.join(__dirname, 'knowledge_base.json');
 const PROGRAM_CATALOG_FILE = path.join(__dirname, 'program_catalog.json');
@@ -63,12 +66,6 @@ function buildCardMap(kb) {
 
 function findCardById(kb, id) {
   return (kb.cards || []).find(c => c.id === id) || null;
-}
-
-function getCardByIntent(kb, intentName) {
-  const cardId = kb.intent_map?.[intentName];
-  if (!cardId) return null;
-  return findCardById(kb, cardId);
 }
 
 function detectDirectionCard(query, kb) {
@@ -211,12 +208,7 @@ function getBaseUrl(req) {
 function getMainMenuReplyMarkup(baseUrl) {
   return {
     keyboard: [
-      [
-        {
-          text: '📚 Каталог программ',
-          web_app: { url: `${baseUrl}/miniapp` }
-        }
-      ],
+      [{ text: '📚 Каталог программ', web_app: { url: `${baseUrl}/miniapp` } }],
       [{ text: '🎓 Направления' }, { text: '💰 Стоимость' }],
       [{ text: '📅 Расписание' }, { text: '📄 Документы' }],
       [{ text: '👩‍🏫 Преподаватели' }, { text: '📞 Контакты' }],
@@ -229,12 +221,7 @@ function getMainMenuReplyMarkup(baseUrl) {
 function getProgramReplyMarkup(baseUrl) {
   return {
     keyboard: [
-      [
-        {
-          text: '📚 Каталог программ',
-          web_app: { url: `${baseUrl}/miniapp` }
-        }
-      ],
+      [{ text: '📚 Каталог программ', web_app: { url: `${baseUrl}/miniapp` } }],
       [{ text: '💰 Стоимость' }, { text: '📅 Расписание' }],
       [{ text: '📄 Документы' }, { text: '📞 Контакты' }],
       [{ text: '🏠 Главное меню' }]
@@ -302,7 +289,7 @@ async function sendTelegramMessage(chatId, text, replyMarkup = undefined) {
 
   console.log('SEND TO TELEGRAM:', {
     chatId,
-    textPreview: String(text || '').slice(0, 120)
+    textPreview: String(text || '').slice(0, 150)
   });
 
   return telegramRequest('sendMessage', payload);
@@ -355,33 +342,76 @@ function getMainMenuText(kb) {
     : '👋 Добро пожаловать! Выберите раздел: направления обучения, стоимость, расписание, документы, контакты или вход в СДО.';
 }
 
-async function handleTelegramTextMessage(req, message) {
-  const chatId = message.chat.id;
-  const text = message.text || '';
-  const normalized = normalize(text);
-  const kb = loadKB();
-  const cardMap = buildCardMap(kb);
-  const baseUrl = getBaseUrl(req);
+function getDialogflowCredentials() {
+  if (!GOOGLE_APPLICATION_CREDENTIALS_JSON) return null;
 
-  if (
-    normalized === '/start' ||
-    normalized === 'start' ||
-    normalized === '/menu' ||
-    normalized === 'главное меню' ||
-    normalized === '🏠 главное меню'
-  ) {
-    const menuText = getMainMenuText(kb);
-    const mainCard = findCardById(kb, 'main_menu');
+  try {
+    return JSON.parse(GOOGLE_APPLICATION_CREDENTIALS_JSON);
+  } catch (error) {
+    console.error('Ошибка парсинга GOOGLE_APPLICATION_CREDENTIALS_JSON:', error);
+    return null;
+  }
+}
 
-    sessionState.set(String(chatId), {
-      lastCardId: 'main_menu',
-      suggestionIds: mainCard?.follow_up_ids || []
-    });
-
-    await sendTelegramMessage(chatId, menuText, getMainMenuReplyMarkup(baseUrl));
-    return;
+async function detectDialogflowIntent(text, sessionId) {
+  if (!DIALOGFLOW_PROJECT_ID) {
+    console.log('DIALOGFLOW_PROJECT_ID не задан');
+    return null;
   }
 
+  const credentials = getDialogflowCredentials();
+  if (!credentials) {
+    console.log('Не удалось получить credentials для Dialogflow');
+    return null;
+  }
+
+  const sessionClient = new dialogflow.SessionsClient({ credentials });
+  const sessionPath = sessionClient.projectAgentSessionPath(
+    DIALOGFLOW_PROJECT_ID,
+    String(sessionId)
+  );
+
+  const request = {
+    session: sessionPath,
+    queryInput: {
+      text: {
+        text,
+        languageCode: 'ru'
+      }
+    }
+  };
+
+  const responses = await sessionClient.detectIntent(request);
+  const result = responses[0]?.queryResult || null;
+
+  if (!result) return null;
+
+  const parsed = {
+    intentName: result.intent?.displayName || '',
+    confidence: Number(result.intentDetectionConfidence || 0),
+    fulfillmentText: result.fulfillmentText || ''
+  };
+
+  console.log('DIALOGFLOW RESULT:', parsed);
+
+  return parsed;
+}
+
+function shouldUseDialogflowFulfillment(dfResult) {
+  if (!dfResult) return false;
+  if (!dfResult.intentName) return false;
+  if (dfResult.intentName === 'Default Fallback Intent') return false;
+  if (!dfResult.fulfillmentText || !dfResult.fulfillmentText.trim()) return false;
+  if (dfResult.confidence < 0.35) return false;
+
+  return true;
+}
+
+async function handleTelegramFallbackByKB(req, message, kb) {
+  const chatId = message.chat.id;
+  const text = message.text || '';
+  const baseUrl = getBaseUrl(req);
+  const cardMap = buildCardMap(kb);
   const previousState = sessionState.get(String(chatId)) || null;
 
   if (previousState?.suggestionIds?.length) {
@@ -398,7 +428,7 @@ async function handleTelegramTextMessage(req, message) {
       });
 
       await sendTelegramMessage(chatId, answer, getMainMenuReplyMarkup(baseUrl));
-      return;
+      return true;
     }
   }
 
@@ -424,7 +454,7 @@ async function handleTelegramTextMessage(req, message) {
         });
 
         await sendTelegramMessage(chatId, answer, getMainMenuReplyMarkup(baseUrl));
-        return;
+        return true;
       }
     }
   }
@@ -442,7 +472,7 @@ async function handleTelegramTextMessage(req, message) {
     });
 
     await sendTelegramMessage(chatId, answer, getMainMenuReplyMarkup(baseUrl));
-    return;
+    return true;
   }
 
   const bestCard = findBestCard(text, kb);
@@ -455,7 +485,7 @@ async function handleTelegramTextMessage(req, message) {
     });
 
     await sendTelegramMessage(chatId, answer, getMainMenuReplyMarkup(baseUrl));
-    return;
+    return true;
   }
 
   await sendTelegramMessage(
@@ -463,6 +493,54 @@ async function handleTelegramTextMessage(req, message) {
     'Я не нашёл точного ответа. Напишите, пожалуйста: направления обучения, стоимость, документы, расписание, контакты или откройте каталог программ.',
     getMainMenuReplyMarkup(baseUrl)
   );
+
+  return true;
+}
+
+async function handleTelegramTextMessage(req, message) {
+  const chatId = message.chat.id;
+  const text = message.text || '';
+  const normalized = normalize(text);
+  const kb = loadKB();
+  const baseUrl = getBaseUrl(req);
+
+  if (
+    normalized === '/start' ||
+    normalized === 'start' ||
+    normalized === '/menu' ||
+    normalized === 'главное меню' ||
+    normalized === '🏠 главное меню'
+  ) {
+    const menuText = getMainMenuText(kb);
+    const mainCard = findCardById(kb, 'main_menu');
+
+    sessionState.set(String(chatId), {
+      lastCardId: 'main_menu',
+      suggestionIds: mainCard?.follow_up_ids || []
+    });
+
+    await sendTelegramMessage(chatId, menuText, getMainMenuReplyMarkup(baseUrl));
+    return;
+  }
+
+  let dfResult = null;
+
+  try {
+    dfResult = await detectDialogflowIntent(text, chatId);
+  } catch (error) {
+    console.error('Ошибка detectIntent:', error);
+  }
+
+  if (shouldUseDialogflowFulfillment(dfResult)) {
+    await sendTelegramMessage(
+      chatId,
+      dfResult.fulfillmentText.trim(),
+      getMainMenuReplyMarkup(baseUrl)
+    );
+    return;
+  }
+
+  await handleTelegramFallbackByKB(req, message, kb);
 }
 
 app.get('/', (req, res) => {
@@ -632,18 +710,6 @@ app.post('/webhook', (req, res) => {
       sessionState.set(sessionId, {
         lastCardId: explicitDirectionCard.id,
         suggestionIds: explicitDirectionCard.follow_up_ids || []
-      });
-
-      return res.json({ fulfillmentText: text });
-    }
-
-    const directCard = getCardByIntent(kb, intentName);
-    if (directCard && directCard.id !== 'site_search') {
-      const text = buildStructuredAnswer(directCard, findBestChunk(userText, directCard) || directCard.answer);
-
-      sessionState.set(sessionId, {
-        lastCardId: directCard.id,
-        suggestionIds: directCard.follow_up_ids || []
       });
 
       return res.json({ fulfillmentText: text });
