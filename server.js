@@ -11,10 +11,8 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const KB_FILE = path.join(__dirname, 'knowledge_base.json');
 const PROGRAM_CATALOG_FILE = path.join(__dirname, 'program_catalog.json');
 
-// Раздача Mini App как статического приложения
 app.use('/miniapp', express.static(path.join(__dirname, 'miniapp')));
 
-// Простое in-memory хранение контекста диалога по session/chat id
 const sessionState = new Map();
 
 function loadKB() {
@@ -30,46 +28,20 @@ function loadProgramCatalog() {
 function normalize(text) {
   return String(text || '')
     .toLowerCase()
-    .replace(/[ё]/g, 'е')
+    .replace(/ё/g, 'е')
     .replace(/[^\u0000-\u007F\u0400-\u04FF\d\s-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-function getSessionId(body) {
-  return body?.session || body?.originalDetectIntentRequest?.payload?.data?.chat?.id || 'default-session';
-}
-
-function getQueryResult(body) {
-  return body?.queryResult || {};
-}
-
-function getIntentName(queryResult) {
-  return queryResult?.intent?.displayName || '';
-}
-
-function getAction(queryResult) {
-  return queryResult?.action || '';
-}
-
-function getUserText(queryResult) {
-  return queryResult?.queryText || '';
-}
-
-function getParameters(queryResult) {
-  return queryResult?.parameters || {};
+function textIncludesAny(text, variants = []) {
+  const q = normalize(text);
+  return variants.some(v => q.includes(normalize(v)));
 }
 
 function isAffirmative(text) {
   const q = normalize(text);
-  return [
-    'да', 'давай', 'хорошо', 'ок', 'окей', 'конечно', 'покажи', 'хочу', 'ага', 'угу', 'покажи пожалуйста'
-  ].includes(q);
-}
-
-function textIncludesAny(text, variants = []) {
-  const q = normalize(text);
-  return variants.some(v => q.includes(normalize(v)));
+  return ['да', 'давай', 'хорошо', 'ок', 'окей', 'ага', 'угу', 'покажи', 'хочу'].includes(q);
 }
 
 function buildCardMap(kb) {
@@ -80,10 +52,14 @@ function buildCardMap(kb) {
   return map;
 }
 
+function findCardById(kb, id) {
+  return (kb.cards || []).find(c => c.id === id) || null;
+}
+
 function getCardByIntent(kb, intentName) {
   const cardId = kb.intent_map?.[intentName];
   if (!cardId) return null;
-  return (kb.cards || []).find(c => c.id === cardId) || null;
+  return findCardById(kb, cardId);
 }
 
 function detectDirectionCard(query, kb) {
@@ -101,10 +77,9 @@ function detectDirectionCard(query, kb) {
   for (const id of directionCards) {
     const aliases = kb.aliases?.[id] || [];
     if (aliases.some(a => q.includes(normalize(a)))) {
-      return (kb.cards || []).find(c => c.id === id) || null;
+      return findCardById(kb, id);
     }
   }
-
   return null;
 }
 
@@ -200,10 +175,10 @@ function buildStructuredAnswer(card, chunk = null) {
   return `${mainText}${detailsUrl}${nextStep}`;
 }
 
-function resolveFollowUpByUserText(userText, suggestions, kb) {
-  if (!suggestions || suggestions.length === 0) return null;
+function resolveFollowUpByUserText(userText, suggestionCards, kb) {
+  if (!suggestionCards || suggestionCards.length === 0) return null;
 
-  for (const suggestion of suggestions) {
+  for (const suggestion of suggestionCards) {
     const aliases = kb.aliases?.[suggestion.id] || [];
     const haystack = [suggestion.title, ...(suggestion.keywords || []), ...aliases];
     if (textIncludesAny(userText, haystack)) {
@@ -212,34 +187,75 @@ function resolveFollowUpByUserText(userText, suggestions, kb) {
   }
 
   if (isAffirmative(userText)) {
-    return suggestions[0];
+    return suggestionCards[0];
   }
 
   return null;
 }
 
-function buildMenuKeyboardText(kb) {
-  const main = (kb.cards || []).find(c => c.id === 'main_menu');
-  return main ? buildStructuredAnswer(main) : 'Главное меню недоступно.';
+function getBaseUrl(req) {
+  return `${req.protocol}://${req.get('host')}`;
 }
 
-function findProgramById(id) {
-  const programs = loadProgramCatalog();
-  return programs.find(item => item.id === id) || null;
+function getMainMenuReplyMarkup(baseUrl) {
+  return {
+    keyboard: [
+      [
+        {
+          text: '📚 Каталог программ',
+          web_app: { url: `${baseUrl}/miniapp` }
+        }
+      ],
+      [{ text: '🎓 Направления' }, { text: '💰 Стоимость' }],
+      [{ text: '📅 Расписание' }, { text: '📄 Документы' }],
+      [{ text: '👩‍🏫 Преподаватели' }, { text: '📞 Контакты' }],
+      [{ text: '🔐 Вход в СДО' }, { text: '🏠 Главное меню' }]
+    ],
+    resize_keyboard: true
+  };
 }
 
-function findDirectionCardIdByProgram(program) {
-  const map = {
-    laboratories: 'direction_labs',
-    ecology: 'direction_ecology',
-    fire: 'direction_fire',
-    labor_safety: 'direction_labor',
-    radiation: 'direction_radiation',
-    energy: 'direction_electro',
-    food: 'direction_food'
+function getProgramReplyMarkup(baseUrl) {
+  return {
+    keyboard: [
+      [
+        {
+          text: '📚 Каталог программ',
+          web_app: { url: `${baseUrl}/miniapp` }
+        }
+      ],
+      [{ text: '💰 Стоимость' }, { text: '📅 Расписание' }],
+      [{ text: '📄 Документы' }, { text: '📞 Контакты' }],
+      [{ text: '🏠 Главное меню' }]
+    ],
+    resize_keyboard: true
+  };
+}
+
+async function sendTelegramMessage(chatId, text, replyMarkup = undefined) {
+  if (!TELEGRAM_BOT_TOKEN) {
+    throw new Error('Не задан TELEGRAM_BOT_TOKEN');
+  }
+
+  const payload = {
+    chat_id: chatId,
+    text,
+    disable_web_page_preview: false
   };
 
-  return map[program?.direction] || null;
+  if (replyMarkup) payload.reply_markup = replyMarkup;
+
+  const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await response.json();
+  if (!data.ok) {
+    throw new Error(`Telegram sendMessage error: ${JSON.stringify(data)}`);
+  }
+  return data;
 }
 
 function buildProgramText(program) {
@@ -263,33 +279,121 @@ function buildProgramText(program) {
   ].join('\n');
 }
 
-async function sendTelegramMessage(chatId, text, replyMarkup = undefined) {
-  if (!TELEGRAM_BOT_TOKEN) {
-    throw new Error('Не задан TELEGRAM_BOT_TOKEN');
-  }
+function findProgramById(id) {
+  const programs = loadProgramCatalog();
+  return programs.find(item => item.id === id) || null;
+}
 
-  const payload = {
-    chat_id: chatId,
-    text,
-    disable_web_page_preview: false
+function findDirectionCardIdByProgram(program) {
+  const map = {
+    laboratories: 'direction_labs',
+    ecology: 'direction_ecology',
+    fire: 'direction_fire',
+    labor_safety: 'direction_labor',
+    radiation: 'direction_radiation',
+    energy: 'direction_electro',
+    food: 'direction_food',
+    normocontrol: 'documents'
   };
+  return map[program?.direction] || null;
+}
 
-  if (replyMarkup) {
-    payload.reply_markup = replyMarkup;
+function getMainMenuText(kb) {
+  const mainCard = findCardById(kb, 'main_menu');
+  return mainCard
+    ? buildStructuredAnswer(mainCard)
+    : '👋 Добро пожаловать! Выберите раздел: направления обучения, стоимость, расписание, документы, контакты или вход в СДО.';
+}
+
+async function handleTelegramTextMessage(req, message) {
+  const chatId = message.chat.id;
+  const text = message.text || '';
+  const normalized = normalize(text);
+  const kb = loadKB();
+  const cardMap = buildCardMap(kb);
+  const baseUrl = getBaseUrl(req);
+
+  if (normalized === '/start' || normalized === 'start' || normalized === '/menu' || normalized === 'главное меню' || normalized === '🏠 главное меню') {
+    const menuText = getMainMenuText(kb);
+    const mainCard = findCardById(kb, 'main_menu');
+    sessionState.set(String(chatId), {
+      lastCardId: 'main_menu',
+      suggestionIds: mainCard?.follow_up_ids || []
+    });
+    await sendTelegramMessage(chatId, menuText, getMainMenuReplyMarkup(baseUrl));
+    return;
   }
 
-  const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  const previousState = sessionState.get(String(chatId)) || null;
 
-  const data = await response.json();
-  if (!data.ok) {
-    throw new Error(`Telegram sendMessage error: ${JSON.stringify(data)}`);
+  if (previousState?.suggestionIds?.length) {
+    const suggestionCards = previousState.suggestionIds.map(id => cardMap.get(id)).filter(Boolean);
+    const followUpCard = resolveFollowUpByUserText(text, suggestionCards, kb);
+
+    if (followUpCard) {
+      const chunk = findBestChunk(text, followUpCard) || followUpCard.answer;
+      const answer = buildStructuredAnswer(followUpCard, chunk);
+      sessionState.set(String(chatId), {
+        lastCardId: followUpCard.id,
+        suggestionIds: followUpCard.follow_up_ids || []
+      });
+      await sendTelegramMessage(chatId, answer, getMainMenuReplyMarkup(baseUrl));
+      return;
+    }
   }
 
-  return data;
+  const quickMap = [
+    { variants: ['контакты', '📞 контакты'], cardId: 'contacts' },
+    { variants: ['документы', '📄 документы'], cardId: 'documents' },
+    { variants: ['расписание', '📅 расписание', 'календарь'], cardId: 'calendar' },
+    { variants: ['стоимость', 'цена', 'цены', '💰 стоимость', 'прайс'], cardId: 'price_list' },
+    { variants: ['преподаватели', '👩‍🏫 преподаватели'], cardId: 'teachers' },
+    { variants: ['вход в сдо', '🔐 вход в сдо', 'личный кабинет'], cardId: 'lms_login' },
+    { variants: ['направления', '🎓 направления'], cardId: 'directions' }
+  ];
+
+  for (const item of quickMap) {
+    if (textIncludesAny(text, item.variants)) {
+      const card = findCardById(kb, item.cardId);
+      if (card) {
+        const answer = buildStructuredAnswer(card, findBestChunk(text, card) || card.answer);
+        sessionState.set(String(chatId), {
+          lastCardId: card.id,
+          suggestionIds: card.follow_up_ids || []
+        });
+        await sendTelegramMessage(chatId, answer, getMainMenuReplyMarkup(baseUrl));
+        return;
+      }
+    }
+  }
+
+  const explicitDirectionCard = detectDirectionCard(text, kb);
+  if (explicitDirectionCard) {
+    const answer = buildStructuredAnswer(explicitDirectionCard, findBestChunk(text, explicitDirectionCard) || explicitDirectionCard.answer);
+    sessionState.set(String(chatId), {
+      lastCardId: explicitDirectionCard.id,
+      suggestionIds: explicitDirectionCard.follow_up_ids || []
+    });
+    await sendTelegramMessage(chatId, answer, getMainMenuReplyMarkup(baseUrl));
+    return;
+  }
+
+  const bestCard = findBestCard(text, kb);
+  if (bestCard) {
+    const answer = buildStructuredAnswer(bestCard, findBestChunk(text, bestCard) || bestCard.answer);
+    sessionState.set(String(chatId), {
+      lastCardId: bestCard.id,
+      suggestionIds: bestCard.follow_up_ids || []
+    });
+    await sendTelegramMessage(chatId, answer, getMainMenuReplyMarkup(baseUrl));
+    return;
+  }
+
+  await sendTelegramMessage(
+    chatId,
+    'Я не нашёл точного ответа. Напишите, пожалуйста: направления обучения, стоимость, документы, расписание, контакты или откройте каталог программ.',
+    getMainMenuReplyMarkup(baseUrl)
+  );
 }
 
 app.get('/', (req, res) => {
@@ -308,7 +412,6 @@ app.get('/', (req, res) => {
 app.get('/api/programs', (req, res) => {
   try {
     let programs = loadProgramCatalog();
-
     const { direction, format } = req.query;
 
     if (direction) {
@@ -328,15 +431,14 @@ app.get('/api/programs', (req, res) => {
   }
 });
 
-// Telegram webhook для обработки ответа из Mini App: tg.sendData(...)
 app.post('/telegram-webhook', async (req, res) => {
   try {
     const update = req.body || {};
-    const message = update.message;
+    const message = update.message || update.edited_message;
+    if (!message) return res.sendStatus(200);
 
-    if (!message) {
-      return res.sendStatus(200);
-    }
+    const chatId = message.chat?.id;
+    const baseUrl = getBaseUrl(req);
 
     if (message.web_app_data?.data) {
       const payload = JSON.parse(message.web_app_data.data);
@@ -347,41 +449,38 @@ app.post('/telegram-webhook', async (req, res) => {
 
         if (!program) {
           await sendTelegramMessage(
-            message.chat.id,
-            'Не удалось найти выбранную программу. Откройте каталог ещё раз и попробуйте снова.'
+            chatId,
+            'Не удалось найти выбранную программу. Откройте каталог ещё раз и попробуйте снова.',
+            getProgramReplyMarkup(baseUrl)
           );
           return res.sendStatus(200);
         }
 
         const kb = loadKB();
         const directionCardId = findDirectionCardIdByProgram(program);
-        const directionCard = directionCardId
-          ? (kb.cards || []).find(card => card.id === directionCardId)
-          : null;
+        const directionCard = directionCardId ? findCardById(kb, directionCardId) : null;
 
-        sessionState.set(String(message.chat.id), {
+        sessionState.set(String(chatId), {
           lastProgramId: program.id,
           lastCardId: directionCard?.id || null,
           suggestionIds: directionCard?.follow_up_ids || []
         });
 
-        const replyMarkup = {
-          keyboard: [
-            [{ text: '💰 Стоимость' }, { text: '📅 Расписание' }],
-            [{ text: '📄 Документы' }, { text: '📞 Контакты' }],
-            [{ text: '🏠 Главное меню' }]
-          ],
-          resize_keyboard: true
-        };
-
-        await sendTelegramMessage(
-          message.chat.id,
-          buildProgramText(program),
-          replyMarkup
-        );
+        await sendTelegramMessage(chatId, buildProgramText(program), getProgramReplyMarkup(baseUrl));
+        return res.sendStatus(200);
       }
     }
 
+    if (message.text) {
+      await handleTelegramTextMessage(req, message);
+      return res.sendStatus(200);
+    }
+
+    await sendTelegramMessage(
+      chatId,
+      'Пожалуйста, отправьте текстовый запрос или откройте каталог программ.',
+      getMainMenuReplyMarkup(baseUrl)
+    );
     return res.sendStatus(200);
   } catch (error) {
     console.error('Ошибка Telegram webhook:', error);
@@ -389,31 +488,23 @@ app.post('/telegram-webhook', async (req, res) => {
   }
 });
 
-// Webhook Dialogflow
 app.post('/webhook', (req, res) => {
   try {
     const body = req.body || {};
-    const sessionId = getSessionId(body);
-    const queryResult = getQueryResult(body);
-    const intentName = getIntentName(queryResult);
-    const action = getAction(queryResult);
-    const userText = getUserText(queryResult);
-    const parameters = getParameters(queryResult);
+    const sessionId = body?.session || 'default-session';
+    const queryResult = body?.queryResult || {};
+    const intentName = queryResult?.intent?.displayName || '';
+    const action = queryResult?.action || '';
+    const userText = queryResult?.queryText || '';
+    const parameters = queryResult?.parameters || {};
     const kb = loadKB();
     const cardMap = buildCardMap(kb);
-
-    console.log('Session:', sessionId);
-    console.log('Intent:', intentName);
-    console.log('Action:', action);
-    console.log('Query:', userText);
-    console.log('Parameters:', parameters);
 
     const previousState = sessionState.get(sessionId) || null;
 
     if (previousState?.suggestionIds?.length) {
       const suggestionCards = previousState.suggestionIds.map(id => cardMap.get(id)).filter(Boolean);
       const followUpCard = resolveFollowUpByUserText(userText, suggestionCards, kb);
-
       if (followUpCard) {
         const chunk = findBestChunk(userText, followUpCard) || followUpCard.answer;
         const text = buildStructuredAnswer(followUpCard, chunk);
@@ -426,19 +517,17 @@ app.post('/webhook', (req, res) => {
     }
 
     if (intentName === 'main_menu') {
-      const menuText = buildMenuKeyboardText(kb);
-      const menuCard = cardMap.get('main_menu');
+      const mainCard = findCardById(kb, 'main_menu');
       sessionState.set(sessionId, {
         lastCardId: 'main_menu',
-        suggestionIds: menuCard?.follow_up_ids || []
+        suggestionIds: mainCard?.follow_up_ids || []
       });
-      return res.json({ fulfillmentText: menuText });
+      return res.json({ fulfillmentText: getMainMenuText(kb) });
     }
 
     const explicitDirectionCard = detectDirectionCard(userText, kb);
     if (explicitDirectionCard) {
-      const chunk = findBestChunk(userText, explicitDirectionCard) || explicitDirectionCard.answer;
-      const text = buildStructuredAnswer(explicitDirectionCard, chunk);
+      const text = buildStructuredAnswer(explicitDirectionCard, findBestChunk(userText, explicitDirectionCard) || explicitDirectionCard.answer);
       sessionState.set(sessionId, {
         lastCardId: explicitDirectionCard.id,
         suggestionIds: explicitDirectionCard.follow_up_ids || []
@@ -448,8 +537,7 @@ app.post('/webhook', (req, res) => {
 
     const directCard = getCardByIntent(kb, intentName);
     if (directCard && directCard.id !== 'site_search') {
-      const chunk = findBestChunk(userText, directCard) || directCard.answer;
-      const text = buildStructuredAnswer(directCard, chunk);
+      const text = buildStructuredAnswer(directCard, findBestChunk(userText, directCard) || directCard.answer);
       sessionState.set(sessionId, {
         lastCardId: directCard.id,
         suggestionIds: directCard.follow_up_ids || []
@@ -461,8 +549,7 @@ app.post('/webhook', (req, res) => {
     if (directionName) {
       const directionCard = detectDirectionCard(directionName, kb);
       if (directionCard) {
-        const chunk = findBestChunk(userText || directionName, directionCard) || directionCard.answer;
-        const text = buildStructuredAnswer(directionCard, chunk);
+        const text = buildStructuredAnswer(directionCard, findBestChunk(userText || directionName, directionCard) || directionCard.answer);
         sessionState.set(sessionId, {
           lastCardId: directionCard.id,
           suggestionIds: directionCard.follow_up_ids || []
@@ -471,18 +558,16 @@ app.post('/webhook', (req, res) => {
       }
     }
 
-    const isSearchIntent = (
+    const isSearchIntent =
       intentName === 'site_search' ||
       intentName === 'site-search' ||
       intentName === 'Default Fallback Intent' ||
-      action === 'search_site'
-    );
+      action === 'search_site';
 
     if (isSearchIntent || userText) {
       const bestCard = findBestCard(userText, kb);
       if (bestCard) {
-        const bestChunk = findBestChunk(userText, bestCard) || bestCard.answer;
-        const text = buildStructuredAnswer(bestCard, bestChunk);
+        const text = buildStructuredAnswer(bestCard, findBestChunk(userText, bestCard) || bestCard.answer);
         sessionState.set(sessionId, {
           lastCardId: bestCard.id,
           suggestionIds: bestCard.follow_up_ids || []
@@ -491,12 +576,14 @@ app.post('/webhook', (req, res) => {
       }
     }
 
-    const fallbackText = 'Я не нашёл точного ответа. Уточните, пожалуйста: вас интересуют направления обучения, стоимость, контакты, реквизиты, документы, расписание или вход в СДО?';
     sessionState.set(sessionId, {
       lastCardId: 'site_search',
       suggestionIds: ['directions', 'price_list', 'contacts', 'documents', 'calendar', 'lms_login']
     });
-    return res.json({ fulfillmentText: fallbackText });
+
+    return res.json({
+      fulfillmentText: 'Я не нашёл точного ответа. Уточните, пожалуйста: вас интересуют направления обучения, стоимость, контакты, реквизиты, документы, расписание или вход в СДО?'
+    });
   } catch (error) {
     console.error('Ошибка webhook:', error);
     return res.json({
