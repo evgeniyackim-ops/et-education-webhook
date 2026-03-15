@@ -18,6 +18,16 @@ const KB_FILE = path.join(__dirname, 'knowledge_base.json');
 const PROGRAM_CATALOG_FILE = path.join(__dirname, 'program_catalog.json');
 const FEEDBACK_LOG_FILE = path.join(__dirname, 'feedback_log.json');
 const HANDOFF_FILE = path.join(__dirname, 'handoff_requests.json');
+const TEACHERS_FILE = path.join(__dirname, 'teachers_config.json');
+
+const DEADLINE_EVENTS = [
+  { date: '30.03.2026', title: 'Завершение регистрации на курс «Экологическая безопасность»' },
+  { date: '01.04.2026', title: 'Начало программы «Нормоконтроль технической документации»' },
+  { date: '03.04.2026', title: 'Вебинар по радиационной безопасности' },
+  { date: '07.04.2026', title: 'Окончание набора на курс «Охрана труда»' },
+  { date: '10.04.2026', title: 'Семинар по метрологии' },
+  { date: '12.04.2026', title: 'Начало курса «Метрологическое обеспечение производства»' }
+];
 
 const miniappDir = path.join(__dirname, 'miniapp');
 app.use('/miniapp', express.static(fs.existsSync(miniappDir) ? miniappDir : __dirname));
@@ -50,6 +60,97 @@ function loadKB() {
 
 function loadProgramCatalog() {
   return loadJson(PROGRAM_CATALOG_FILE, []);
+}
+
+function loadTeachersConfig() {
+  return loadJson(TEACHERS_FILE, { teachers: [] });
+}
+
+function getTeachers() {
+  return loadTeachersConfig().teachers || [];
+}
+
+function normalizePersonName(text) {
+  return normalize(text).replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function findTeacherByInput(input) {
+  const q = normalizePersonName(input);
+  if (!q) return null;
+
+  let bestTeacher = null;
+  let bestScore = 0;
+
+  for (const teacher of getTeachers()) {
+    const variants = [teacher.full_name, ...(teacher.aliases || [])]
+      .map(normalizePersonName)
+      .filter(Boolean);
+
+    let score = 0;
+    for (const variant of variants) {
+      if (q === variant) score = Math.max(score, 100);
+      else if (variant.includes(q) || q.includes(variant)) score = Math.max(score, 80);
+      else {
+        const parts = q.split(' ').filter(Boolean);
+        const matchCount = parts.filter(part => variant.includes(part)).length;
+        if (matchCount >= 2) score = Math.max(score, 60 + matchCount * 5);
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestTeacher = teacher;
+    }
+  }
+
+  return bestScore >= 60 ? bestTeacher : null;
+}
+
+function flattenTeacherSlots(teacher) {
+  return (teacher?.slots_pages || []).flat().filter(Boolean);
+}
+
+function formatTeacherSlots(teacher, slots) {
+  const lines = slots.map((slot, index) => `${index + 1}. ${slot.date} — ${slot.time} (${slot.format})`);
+  return [
+    `Доступные консультации для преподавателя ${teacher.full_name}:`,
+    '',
+    ...lines,
+    '',
+    'Напишите номер удобного времени.'
+  ].join('\n');
+}
+
+function formatConsultationConfirmation(teacher, slot) {
+  return [
+    '✅ Запись на консультацию подтверждена.',
+    '',
+    `Преподаватель: ${teacher.full_name}`,
+    `Направление: ${teacher.direction}`,
+    `Дата: ${slot.date}`,
+    `Время: ${slot.time}`,
+    `Формат: ${slot.format}`,
+    '',
+    'Перед консультацией вам придет напоминание.'
+  ].join('\n');
+}
+
+function formatDeadlineEvents() {
+  return [
+    'Ближайшие дедлайны и учебные события:',
+    '',
+    ...DEADLINE_EVENTS.map(item => `• ${item.date} — ${item.title}`),
+    '',
+    'Хотите подключить напоминания? Напишите: «включи напоминания о дедлайнах».'
+  ].join('\n');
+}
+
+function formatDeadlineReminder() {
+  return [
+    'Напоминание о ближайших дедлайнах:',
+    '',
+    ...DEADLINE_EVENTS.map(item => `• ${item.date} — ${item.title}`)
+  ].join('\n');
 }
 
 function normalize(text) {
@@ -442,7 +543,11 @@ function getOrCreateState(chatId) {
     awaitingFeedback: false,
     awaitingHandoffConfirm: false,
     lastInteraction: null,
-    pendingHandoffReason: null
+    pendingHandoffReason: null,
+    flow: null,
+    consultationTeacher: null,
+    consultationSlots: [],
+    remindersEnabled: false
   };
   sessionState.set(key, state);
   return state;
@@ -472,6 +577,143 @@ function setLastInteraction(chatId, payload) {
   state.awaitingHandoffConfirm = false;
   state.pendingHandoffReason = null;
   sessionState.set(String(chatId), state);
+}
+
+
+function clearFlowState(state) {
+  state.flow = null;
+  state.consultationTeacher = null;
+  state.consultationSlots = [];
+}
+
+async function sendDeadlineReminderSequence(chatId, baseUrl) {
+  await sendTelegramMessage(chatId, formatDeadlineReminder(), getMainMenuReplyMarkup(baseUrl));
+  setTimeout(async () => {
+    try {
+      await sendTelegramMessage(
+        chatId,
+        'Напоминания успешно подключены. Теперь вы будете получать уведомления о ближайших дедлайнах и учебных событиях.',
+        getMainMenuReplyMarkup(baseUrl)
+      );
+    } catch (error) {
+      console.error('Ошибка отправки подтверждения напоминаний:', error);
+    }
+  }, 10000);
+}
+
+async function handleConsultationFlow(chatId, text, state, baseUrl) {
+  if (state.flow === 'consultation_waiting_teacher') {
+    const teacher = findTeacherByInput(text);
+    if (!teacher) {
+      await sendTelegramMessage(
+        chatId,
+        'Не удалось определить преподавателя. Напишите ФИО полностью или так, как оно указано в разделе «Преподаватели». Например: «Светлана Геннадьевна Лобынцева».',
+        getMainMenuReplyMarkup(baseUrl)
+      );
+      return true;
+    }
+
+    const slots = flattenTeacherSlots(teacher);
+    state.flow = 'consultation_waiting_slot';
+    state.consultationTeacher = teacher.full_name;
+    state.consultationSlots = slots;
+    sessionState.set(String(chatId), state);
+
+    await sendTelegramMessage(chatId, formatTeacherSlots(teacher, slots), getMainMenuReplyMarkup(baseUrl));
+    return true;
+  }
+
+  if (state.flow === 'consultation_waiting_slot') {
+    const choice = Number(normalize(text));
+    if (!Number.isInteger(choice) || choice < 1 || choice > (state.consultationSlots || []).length) {
+      await sendTelegramMessage(
+        chatId,
+        'Пожалуйста, напишите номер выбранного слота из списка доступных консультаций.',
+        getMainMenuReplyMarkup(baseUrl)
+      );
+      return true;
+    }
+
+    const teacher = findTeacherByInput(state.consultationTeacher || '');
+    const slot = state.consultationSlots[choice - 1];
+    clearFlowState(state);
+    sessionState.set(String(chatId), state);
+    const answer = formatConsultationConfirmation(teacher, slot);
+    await respondWithAnswer(chatId, text, answer, {
+      detectedIntent: 'consultation_booking_complete',
+      answerSource: 'custom_consultation_flow'
+    }, baseUrl);
+    return true;
+  }
+
+  return false;
+}
+
+async function handleDeadlineFlow(chatId, text, state, baseUrl) {
+  if (state.flow === 'deadlines_waiting_confirmation') {
+    if (textIncludesAny(text, ['да', 'включи напоминания', 'включи напоминания о дедлайнах', 'подключить', 'согласен'])) {
+      state.flow = null;
+      state.remindersEnabled = true;
+      sessionState.set(String(chatId), state);
+      await sendTelegramMessage(chatId, 'Отлично! Отправляю ближайшие дедлайны. Через 10 секунд вы получите подтверждение о подключении напоминаний.', getMainMenuReplyMarkup(baseUrl));
+      await sendDeadlineReminderSequence(chatId, baseUrl);
+      return true;
+    }
+
+    if (textIncludesAny(text, ['нет', 'не нужно', 'отмена'])) {
+      state.flow = null;
+      sessionState.set(String(chatId), state);
+      await sendTelegramMessage(chatId, 'Хорошо, напоминания не подключены. Вы можете в любой момент написать: «включи напоминания о дедлайнах».', getMainMenuReplyMarkup(baseUrl));
+      return true;
+    }
+
+    await sendTelegramMessage(chatId, 'Напишите «да», чтобы подключить напоминания, или «нет», чтобы отменить.', getMainMenuReplyMarkup(baseUrl));
+    return true;
+  }
+
+  return false;
+}
+
+async function processCustomIntentFlow(chatId, userText, intentName, baseUrl) {
+  const state = getOrCreateState(chatId);
+
+  if (intentName === 'consultation_booking_start') {
+    clearFlowState(state);
+    state.flow = 'consultation_waiting_teacher';
+    sessionState.set(String(chatId), state);
+    const answer = 'Отлично! Напишите ФИО преподавателя, к которому хотите записаться на консультацию. Например: «Светлана Геннадьевна Лобынцева».';
+    pushHistory(chatId, 'user', userText);
+    pushHistory(chatId, 'bot', answer);
+    await sendTelegramMessage(chatId, answer, getMainMenuReplyMarkup(baseUrl));
+    return true;
+  }
+
+  if (intentName === 'deadlines_info') {
+    state.flow = 'deadlines_waiting_confirmation';
+    sessionState.set(String(chatId), state);
+    const answer = formatDeadlineEvents();
+    await respondWithAnswer(chatId, userText, answer, {
+      detectedIntent: intentName,
+      answerSource: 'custom_deadlines_flow'
+    }, baseUrl);
+    state.awaitingFeedback = false;
+    state.flow = 'deadlines_waiting_confirmation';
+    sessionState.set(String(chatId), state);
+    return true;
+  }
+
+  if (intentName === 'reminders_subscribe') {
+    state.flow = null;
+    state.remindersEnabled = true;
+    sessionState.set(String(chatId), state);
+    pushHistory(chatId, 'user', userText);
+    pushHistory(chatId, 'bot', 'Отлично! Отправляю ближайшие дедлайны. Через 10 секунд вы получите подтверждение о подключении напоминаний.');
+    await sendTelegramMessage(chatId, 'Отлично! Отправляю ближайшие дедлайны. Через 10 секунд вы получите подтверждение о подключении напоминаний.', getMainMenuReplyMarkup(baseUrl));
+    await sendDeadlineReminderSequence(chatId, baseUrl);
+    return true;
+  }
+
+  return false;
 }
 
 function logFeedback(chatId, result) {
@@ -665,6 +907,11 @@ async function processTelegramQuery(chatId, userText, baseUrl) {
 
   const dialogflowResult = await detectDialogflowIntent(userText, `tg-${chatId}`);
 
+  if (dialogflowResult.ok && !dialogflowResult.isFallback) {
+    const customHandled = await processCustomIntentFlow(chatId, userText, dialogflowResult.intentName, baseUrl);
+    if (customHandled) return;
+  }
+
   if (dialogflowResult.ok && !dialogflowResult.isFallback && dialogflowResult.fulfillmentText) {
     state.suggestionIds = [];
     sessionState.set(String(chatId), state);
@@ -735,6 +982,12 @@ async function handleTelegramTextMessage(req, message) {
     );
     return;
   }
+
+  const consultationHandled = await handleConsultationFlow(chatId, text, state, baseUrl);
+  if (consultationHandled) return;
+
+  const deadlineHandled = await handleDeadlineFlow(chatId, text, state, baseUrl);
+  if (deadlineHandled) return;
 
   await processTelegramQuery(chatId, text, baseUrl);
 }
@@ -844,6 +1097,24 @@ app.post('/webhook', (req, res) => {
     if (explicitDirectionCard) {
       return res.json({
         fulfillmentText: buildStructuredAnswer(explicitDirectionCard, findBestChunk(userText, explicitDirectionCard) || explicitDirectionCard.answer)
+      });
+    }
+
+    if (intentName === 'consultation_booking_start') {
+      return res.json({
+        fulfillmentText: 'Отлично! Напишите ФИО преподавателя, к которому хотите записаться на консультацию. Например: «Светлана Геннадьевна Лобынцева».'
+      });
+    }
+
+    if (intentName === 'deadlines_info') {
+      return res.json({
+        fulfillmentText: formatDeadlineEvents()
+      });
+    }
+
+    if (intentName === 'reminders_subscribe') {
+      return res.json({
+        fulfillmentText: 'Напоминания будут подключены в Telegram. Для демонстрации в чате бота отправьте: «включи напоминания о дедлайнах».'
       });
     }
 
